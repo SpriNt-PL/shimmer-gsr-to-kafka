@@ -2,7 +2,7 @@
 import struct
 import argparse
 from pylsl import StreamInfo, StreamOutlet
-from Generator.ShimmerCommands import ShimmerCommands
+from ShimmerCommands import ShimmerCommands
 
 class GSR_PPG_to_LSL:
     def __init__(self, com_port, baud=115200, rate=512, chunk_size=1):

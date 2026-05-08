@@ -16,7 +16,7 @@ Created on DEC 11 10:01:18 2022
 #--------------------
 import threading
 import sys
-from Generator.GSR_to_LSL import GSR_PPG_to_LSL
+from GSR_to_LSL import GSR_PPG_to_LSL
 import serial.tools.list_ports
 #from ET_to_LSL import ET_to_LSL 
 
