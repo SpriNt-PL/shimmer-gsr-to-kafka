@@ -1,9 +1,10 @@
+# GSR_to_LSL.py
+
 #!/usr/bin/env python3
 
 import struct
 import argparse
 import time
-
 from pylsl import StreamInfo, StreamOutlet
 from ShimmerCommands import ShimmerCommands
 
@@ -11,7 +12,6 @@ from ShimmerCommands import ShimmerCommands
 class GSR_PPG_to_LSL:
 
     def __init__(self, com_port, baud=115200, rate=512, chunk_size=1):
-
         self.com_port = com_port
         self.baud = baud
         self.rate = rate
@@ -26,20 +26,17 @@ class GSR_PPG_to_LSL:
         # Enable GSR + PPG sensors
         self.ser.write(struct.pack('BBBB', 0x08, 0x04, 0x01, 0x00))
         ShimmerCommands.wait_for_ack(self)
-
         print("Sensor setup (GSR+PPG) completed.")
 
         # Power on internal expansion board
         self.ser.write(struct.pack('BB', 0x5E, 0x01))
         ShimmerCommands.wait_for_ack(self)
-
         print("Internal expansion board power enabled.")
 
         sample_rate = self.rate
         datatype = 'float32'
 
-        # ---------------- GSR STREAM ----------------
-
+        # GSR stream
         gsr_name = f"Shimmer_GSR_{self.com_port}"
 
         info_gsr = StreamInfo(
@@ -56,8 +53,7 @@ class GSR_PPG_to_LSL:
 
         self.outlet_gsr = StreamOutlet(info_gsr)
 
-        # ---------------- PPG STREAM ----------------
-
+        # PPG stream
         ppg_name = f"Shimmer_PPG_{self.com_port}"
 
         info_ppg = StreamInfo(
@@ -75,7 +71,6 @@ class GSR_PPG_to_LSL:
         self.outlet_ppg = StreamOutlet(info_ppg)
 
         # Set sampling rate
-
         clock_wait = int((2 << 14) / sample_rate)
 
         print(clock_wait)
@@ -86,7 +81,6 @@ class GSR_PPG_to_LSL:
         print(f"Sampling rate set to ~{sample_rate}Hz.")
 
         # Start streaming
-
         self.ser.write(struct.pack('B', 0x07))
         ShimmerCommands.wait_for_ack(self)
 
@@ -97,7 +91,6 @@ class GSR_PPG_to_LSL:
     def read_data_loop(self):
 
         framesize = 8
-
         buffer = b""
 
         gsr_buffer = []
@@ -106,7 +99,6 @@ class GSR_PPG_to_LSL:
         print("Reading data... (Press Ctrl-C to stop)")
 
         try:
-
             while True:
 
                 buffer += self.ser.read(framesize - len(buffer))
@@ -122,31 +114,25 @@ class GSR_PPG_to_LSL:
                     packet
                 )
 
-                # ---------------- GSR CONVERSION ----------------
-
+                # GSR conversion
                 rng = (gsr_raw >> 14) & 0x03
-
                 rf = [40.2, 287.0, 1000.0, 3300.0][rng]
 
                 volts = (gsr_raw & 0x3FFF) * (3.0 / 4095.0)
 
                 gsr_ohm = rf / ((volts / 0.5) - 1.0)
 
-                # ---------------- PPG CONVERSION ----------------
-
+                # PPG conversion
                 ppg_mv = ppg_raw * (3000.0 / 4095.0)
 
-                # ---------------- TIMESTAMP ----------------
-
+                # LSL timestamp
                 timestamp = time.time()
 
-                # ---------------- BUFFER ----------------
-
+                # Add to buffers
                 gsr_buffer.append([gsr_ohm])
                 ppg_buffer.append([ppg_mv])
 
-                # ---------------- PUSH CHUNK ----------------
-
+                # Push chunk when full
                 if len(gsr_buffer) >= self.chunk_size:
 
                     self.outlet_gsr.push_chunk(
@@ -163,17 +149,13 @@ class GSR_PPG_to_LSL:
                     ppg_buffer = []
 
         except KeyboardInterrupt:
-
             print("\nUser interrupted—Stopping stream...")
 
         except Exception as e:
-
             print(f"\nError occurred: {e}")
 
         finally:
-
             ShimmerCommands.stop_stream(self)
-
             print("Shimmer streaming stopped.")
 
 
