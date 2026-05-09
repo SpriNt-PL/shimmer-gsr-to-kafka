@@ -34,11 +34,7 @@ else:
             # milliseconds timestamp
             ts_ms = int(ts_gsr * 1000)
 
-            print(
-                f"Timestamp: {ts_ms} | "
-                f"GSR: {sample_gsr[0]:.2f} kOhms | "
-                f"PPG: {sample_ppg[0]:.2f} mV"
-            )
+            print(f"Timestamp: {ts_ms} | "f"GSR: {sample_gsr[0]:.2f} kOhms | "f"PPG: {sample_ppg[0]:.2f} mV")
 
     except KeyboardInterrupt:
 

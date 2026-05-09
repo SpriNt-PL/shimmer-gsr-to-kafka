@@ -96,7 +96,6 @@ class GSR_PPG_to_LSL:
 
     def read_data_loop(self):
 
-        # type(1) + ts(3) + GSR(2) + PPG(2)
         framesize = 8
 
         buffer = b""
