@@ -3,6 +3,7 @@ import struct
 import argparse
 from pylsl import StreamInfo, StreamOutlet
 from ShimmerCommands import ShimmerCommands
+import time
 
 class GSR_PPG_to_LSL:
     def __init__(self, com_port, baud=115200, rate=512, chunk_size=1):
@@ -10,6 +11,8 @@ class GSR_PPG_to_LSL:
         self.baud = baud
         self.rate = rate
         self.chunk_size = chunk_size
+        self.start_unix_time = time.time()
+        self.first_hw_ts = None
         self.ser = ShimmerCommands.serial_connect(self, com_port)
         self.setup_streams()
 
@@ -27,7 +30,7 @@ class GSR_PPG_to_LSL:
         # Create LSL outlets
         sample_rate = self.rate
         datatype = 'float32'
-        ts_datatype = 'int32'
+        ts_datatype = 'double64'
 
         # GSR stream
         gsr_name = f"Shimmer_GSR_{self.com_port}"
@@ -84,8 +87,17 @@ class GSR_PPG_to_LSL:
                 buffer = buffer[framesize:]
 
                 _, t0, t1, t2, ppg_raw, gsr_raw = struct.unpack('<BBBBHH', packet)
-
                 hardware_ts = t0 + (t1 << 8) + (t2 << 16)
+
+                if self.first_hw_ts is None:
+                    self.first_hw_ts = hardware_ts
+
+                time_diff_sec = (hardware_ts - self.first_hw_ts) / 1000.0
+
+                if time_diff_sec < 0: 
+                    time_diff_sec += (16777216 / 1000.0)
+
+                full_unix_ts = self.start_unix_time + time_diff_sec
 
                 # GSR conversion
                 rng = (gsr_raw >> 14) & 0x03
@@ -99,7 +111,7 @@ class GSR_PPG_to_LSL:
                 # Add to buffers
                 gsr_buffer.append(gsr_ohm)
                 ppg_buffer.append(ppg_mv)
-                ts_buffer.append(hardware_ts)
+                ts_buffer.append(full_unix_ts)
 
                 # Push chunk when full
                 if len(gsr_buffer) >= self.chunk_size:
