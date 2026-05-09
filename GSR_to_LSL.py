@@ -6,7 +6,7 @@ from ShimmerCommands import ShimmerCommands
 import time
 
 class GSR_PPG_to_LSL:
-    def __init__(self, com_port, baud=115200, rate=512, chunk_size=1):
+    def __init__(self, com_port, baud=115200, rate=512, chunk_size=32):
         self.com_port = com_port
         self.baud = baud
         self.rate = rate
@@ -27,35 +27,22 @@ class GSR_PPG_to_LSL:
         ShimmerCommands.wait_for_ack(self)
         print("Internal expansion board power enabled.")
 
-        # Create LSL outlets
+        # Create SINGLE LSL outlet for all 3 channels
         sample_rate = self.rate
-        datatype = 'float32'
-        ts_datatype = 'double64'
+        datatype = 'double64' # Wymagane, by nie stracić precyzji Timestampu!
+        stream_name = f"Shimmer_Data_{self.com_port}"
 
-        # GSR stream
-        gsr_name = f"Shimmer_GSR_{self.com_port}"
-        info_gsr = StreamInfo(gsr_name, 'GSR', 1, sample_rate, datatype, gsr_name)
-        chns_gsr = info_gsr.desc().append_child("channels").append_child("channel")
-        chns_gsr.append_child_value("label", "GSR")
-        self.outlet_gsr = StreamOutlet(info_gsr)
-
-        # PPG stream
-        ppg_name = f"Shimmer_PPG_{self.com_port}"
-        info_ppg = StreamInfo(ppg_name, 'PPG', 1, sample_rate, datatype, ppg_name)
-        chns_ppg = info_ppg.desc().append_child("channels").append_child("channel")
-        chns_ppg.append_child_value("label", "PPG")
-        self.outlet_ppg = StreamOutlet(info_ppg)
-
-        # Timestamp stream
-        ts_name = f"Shimmer_TS_{self.com_port}"
-        info_ts = StreamInfo(ts_name, 'Timestamp', 1, sample_rate, ts_datatype, ts_name)
-        chns_ts = info_ts.desc().append_child("channels").append_child("channel")
-        chns_ts.append_child_value("label", "HW_Timestamp")
-        self.outlet_ts = StreamOutlet(info_ts)
+        info = StreamInfo(stream_name, 'Biosignals', 3, sample_rate, datatype, stream_name)
+        chns = info.desc().append_child("channels")
+        
+        for label in ["GSR", "PPG", "HW_Timestamp"]:
+            chns.append_child("channel").append_child_value("label", label)
+            
+        self.outlet = StreamOutlet(info)
 
         # Set sampling rate
         clock_wait = int((2 << 14) / sample_rate)
-        print(clock_wait)
+        print(f"Clock wait set to: {clock_wait}")
         self.ser.write(struct.pack('<BH', 0x05, clock_wait))
         ShimmerCommands.wait_for_ack(self)
         print(f"Sampling rate set to ~{sample_rate}Hz.")
@@ -70,10 +57,9 @@ class GSR_PPG_to_LSL:
     def read_data_loop(self):
         framesize = 8  # Packet: type(1) + ts(3) + GSR(2) + PPG(2)
         buffer = b""
-
-        gsr_buffer = []
-        ppg_buffer = []
-        ts_buffer = []
+        
+        # Jeden wspólny bufor dla wszystkich danych
+        chunk_buffer = []
 
         print("Reading data... (Press Ctrl-C to stop)")
 
@@ -103,25 +89,18 @@ class GSR_PPG_to_LSL:
                 rng = (gsr_raw >> 14) & 0x03
                 rf = [40.2, 287.0, 1000.0, 3300.0][rng]
                 volts = (gsr_raw & 0x3FFF) * (3.0 / 4095.0)
-                gsr_ohm = rf / ((volts / 0.5) - 1.0)
+                gsr_ohm = rf / ((volts / 0.5) - 1.0) if ((volts / 0.5) - 1.0) != 0 else 0.1
 
                 # PPG conversion
                 ppg_mv = ppg_raw * (3000.0 / 4095.0)
 
-                # Add to buffers
-                gsr_buffer.append(gsr_ohm)
-                ppg_buffer.append(ppg_mv)
-                ts_buffer.append(full_unix_ts)
+                # Add [GSR, PPG, TS] as a single sample to the chunk
+                chunk_buffer.append([gsr_ohm, ppg_mv, full_unix_ts])
 
                 # Push chunk when full
-                if len(gsr_buffer) >= self.chunk_size:
-                    self.outlet_gsr.push_chunk(gsr_buffer)
-                    self.outlet_ppg.push_chunk(ppg_buffer)
-                    self.outlet_ts.push_chunk(ts_buffer)
-
-                    gsr_buffer = []
-                    ppg_buffer = []
-                    ts_buffer = []
+                if len(chunk_buffer) >= self.chunk_size:
+                    self.outlet.push_chunk(chunk_buffer)
+                    chunk_buffer = []
 
         except KeyboardInterrupt:
             print("\nUser interrupted—Stopping stream...")
@@ -131,13 +110,12 @@ class GSR_PPG_to_LSL:
             ShimmerCommands.stop_stream(self)
             print("Shimmer streaming stopped.")
 
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Stream Shimmer GSR & PPG to LSL (chunked)")
     parser.add_argument("--port",  required=True, help="COM port (e.g. COM5)")
     parser.add_argument("--baud",  type=int, default=115200, help="Baud rate (default: 115200)")
-    parser.add_argument("--rate",  type=int, default=50, help="Sampling rate in Hz (default: 200)")
-    parser.add_argument("--chunk", type=int, default=30, help="Number of samples per chunk (default: 10)")
+    parser.add_argument("--rate",  type=int, default=512, help="Sampling rate in Hz (default: 512)")
+    parser.add_argument("--chunk", type=int, default=32, help="Number of samples per chunk (default: 32)")
     args = parser.parse_args()
 
     GSR_PPG_to_LSL(args.port, args.baud, args.rate, args.chunk)

@@ -44,7 +44,8 @@ def main():
     port = 'COM10'
     print(f'Connecting directly to emulator on {port}...')
 
-    gsr = threading.Thread(target=GSR_PPG_to_LSL, args=(port,))
+    # Przekazujemy explicitly parametr chunk_size=32, by odciążyć procesor
+    gsr = threading.Thread(target=GSR_PPG_to_LSL, kwargs={'com_port': port, 'chunk_size': 32})
     gsr.start()
 
     # Keep the main thread alive

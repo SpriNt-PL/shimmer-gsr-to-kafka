@@ -8,12 +8,10 @@ TCP_IP = '127.0.0.1'
 TCP_PORT = 10001
 HZ = 512
 
-# State: [Current, Target, Reversion(k), Noise]
 state = {
     "gsr": [1257.0, 1200.0, 0.01, 0.2],
     "ppg": [1180.0, 1150.0, 0.05, 1.5]
 }
-
 
 def generate_organic_values():
     out = {}
@@ -26,21 +24,20 @@ def generate_organic_values():
         out[key] = new_val
     return out
 
-
 def pack_gsr_internal(kohm):
     if kohm <= 0: kohm = 0.1
     volts = 0.5 * ((287.0 / kohm) + 1.0)
     adc_val = int(volts * (4095.0 / 3.0)) & 0x3FFF
     return (1 << 14) | adc_val
 
-
 def pack_ppg_internal(mv):
     return int(mv * (4095.0 / 3000.0)) & 0x0FFF
-
 
 def run_emulator():
     server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    # Wyłączenie algorytmu Nagle'a - natychmiastowa wysyłka bez buforowania TCP
+    server_sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
 
     try:
         server_sock.bind((TCP_IP, TCP_PORT))
@@ -54,16 +51,12 @@ def run_emulator():
         valid_commands = [b'\x08', b'\x5E', b'\x05', b'\x07', b'\x20']
 
         while True:
-            # 1. BULLETPROOF HANDSHAKE
             conn.setblocking(False)
             try:
                 cmd = conn.recv(1)
                 if cmd:
-                    # Only ACK if it's an official command byte.
-                    # Ignores payloads and HW VSP3 Telnet garbage.
                     if cmd in valid_commands:
                         conn.sendall(b'\xff')
-
                         if cmd == b'\x07':
                             print("Stream Started!")
                             streaming = True
@@ -73,7 +66,6 @@ def run_emulator():
             except BlockingIOError:
                 pass
 
-                # 2. ORGANIC DATA STREAMING
             if streaming:
                 start_loop = time.perf_counter()
 
@@ -89,8 +81,13 @@ def run_emulator():
                 packet = struct.pack('<BBBBHH', 0x00, t0, t1, t2, ppg_bits, gsr_bits)
                 conn.send(packet)
 
+                # Spin-lock o wysokiej precyzji dla utrzymania dokładnych 512 Hz
                 elapsed = time.perf_counter() - start_loop
-                time.sleep(max(0, (1.0 / HZ) - elapsed))
+                sleep_time = (1.0 / HZ) - elapsed
+                if sleep_time > 0:
+                    target_time = time.perf_counter() + sleep_time
+                    while time.perf_counter() < target_time:
+                        pass
             else:
                 time.sleep(0.01)
 
@@ -98,7 +95,6 @@ def run_emulator():
         print(f"Network Error: {e}")
     finally:
         server_sock.close()
-
 
 if __name__ == "__main__":
     run_emulator()
