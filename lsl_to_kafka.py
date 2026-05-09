@@ -52,11 +52,12 @@ try:
         # Budujemy JSONa do wysyłki
         payload = {
             "student_id": STUDENT_ID,
-            "ts_lsl": ts_gsr,          # Surowy czas z LSL
-            "ts_ms": ts_ms,            # Twój czas w ms
-            "human_ts": human_date,    # Czytelna data
+            # "ts_lsl": ts_gsr,          # Surowy czas z LSL
+            "ts": ts_ms,            # Twój czas w ms
+            # "human_ts": human_date,    # Czytelna data
             "gsr": round(sample_gsr[0], 2),
-            "ppg": round(sample_ppg[0], 2)
+            "ppg": round(sample_ppg[0], 2),
+            "hr": 75.0          # HARDCODOWANE HR do czasu zastowosania przekształcenia z ppg
         }
 
         # WYSYŁKA DO KAFKI
