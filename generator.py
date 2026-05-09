@@ -81,12 +81,7 @@ def run_emulator():
                 gsr_bits = pack_gsr_internal(organic_data['gsr'])
                 ppg_bits = pack_ppg_internal(organic_data['ppg'])
 
-                ts_ms = int(time.time() * 1000) & 0xFFFFFF
-                t0 = ts_ms & 0xFF
-                t1 = (ts_ms >> 8) & 0xFF
-                t2 = (ts_ms >> 16) & 0xFF
-
-                packet = struct.pack('<BBBBHH', 0x00, t0, t1, t2, ppg_bits, gsr_bits)
+                packet = struct.pack('<BBBBHH', 0x00, 0x01, 0x02, 0x03, ppg_bits, gsr_bits)
                 conn.send(packet)
 
                 elapsed = time.perf_counter() - start_loop

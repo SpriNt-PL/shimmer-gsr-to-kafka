@@ -27,7 +27,6 @@ class GSR_PPG_to_LSL:
         # Create LSL outlets
         sample_rate = self.rate
         datatype = 'float32'
-        ts_datatype = 'int32'
 
         # GSR stream
         gsr_name = f"Shimmer_GSR_{self.com_port}"
@@ -42,13 +41,6 @@ class GSR_PPG_to_LSL:
         chns_ppg = info_ppg.desc().append_child("channels").append_child("channel")
         chns_ppg.append_child_value("label", "PPG")
         self.outlet_ppg = StreamOutlet(info_ppg)
-
-        # Timestamp
-        ts_name = f"Shimmer_TS_{self.com_port}"
-        info_ts = StreamInfo(ts_name, 'Timestamp', 1, sample_rate, ts_datatype, ts_name)
-        chns_ts = info_ts.desc().append_child("channels").append_child("channel")
-        chns_ts.append_child_value("label", "HW_Timestamp")
-        self.outlet_ts = StreamOutlet(info_ts)
 
         # Set sampling rate
         clock_wait = int((2 << 14) / sample_rate)
@@ -70,7 +62,6 @@ class GSR_PPG_to_LSL:
 
         gsr_buffer = []
         ppg_buffer = []
-        ts_buffer = []
 
         print("Reading data... (Press Ctrl-C to stop)")
 
@@ -85,8 +76,6 @@ class GSR_PPG_to_LSL:
 
                 _, t0, t1, t2, ppg_raw, gsr_raw = struct.unpack('<BBBBHH', packet)
 
-                hardware_ts = t0 + (t1 << 8) + (t2 << 16)
-
                 # GSR conversion
                 rng = (gsr_raw >> 14) & 0x03
                 rf = [40.2, 287.0, 1000.0, 3300.0][rng]
@@ -99,17 +88,13 @@ class GSR_PPG_to_LSL:
                 # Add to buffers
                 gsr_buffer.append(gsr_ohm)
                 ppg_buffer.append(ppg_mv)
-                ts_buffer.append(hardware_ts)
 
                 # Push chunk when full
                 if len(gsr_buffer) >= self.chunk_size:
                     self.outlet_gsr.push_chunk(gsr_buffer)
                     self.outlet_ppg.push_chunk(ppg_buffer)
-                    self.outlet_ts.push_chunk(ts_buffer)
-
                     gsr_buffer = []
                     ppg_buffer = []
-                    ts_buffer = []
 
         except KeyboardInterrupt:
             print("\nUser interrupted—Stopping stream...")
