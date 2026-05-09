@@ -46,7 +46,7 @@ class GSR_PPG_to_LSL:
         chns_ppg.append_child_value("label", "PPG")
         self.outlet_ppg = StreamOutlet(info_ppg)
 
-        # Timestamp
+        # Timestamp stream
         ts_name = f"Shimmer_TS_{self.com_port}"
         info_ts = StreamInfo(ts_name, 'Timestamp', 1, sample_rate, ts_datatype, ts_name)
         chns_ts = info_ts.desc().append_child("channels").append_child("channel")

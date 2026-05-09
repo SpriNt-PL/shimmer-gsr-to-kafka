@@ -27,7 +27,7 @@ else:
             count += 1
             # Only print every 50th sample to prevent console tearing
             if count % 1 == 0:
-                print(f"{sample_ts} Live Data -> GSR: {sample_gsr[0]:.2f} kOhms  |  PPG: {sample_ppg[0]:.2f} mV")
+                print(f"[{sample_ts[0]:.3f}] Live Data -> GSR: {sample_gsr[0]:.2f} kOhms  |  PPG: {sample_ppg[0]:.2f} mV")
 
     except KeyboardInterrupt:
         print("\nReceiver stopped.")
