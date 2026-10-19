@@ -4,10 +4,10 @@ from datetime import datetime
 from confluent_kafka import Producer
 from pylsl import StreamInlet, resolve_byprop
 
-# --- KONFIGURACJA ---
+# Configuration
 PARTICIPATION_ID = "test_session_001"
-KAFKA_SERVER = 'localhost:8081'  # Tunel SSH musi być otwarty!
-TOPIC_NAME = 'biosignal-data'      # Twój osobny topic
+KAFKA_SERVER = 'localhost:8081'  
+TOPIC_NAME = 'biosignal-data'
 
 producer_conf = {'bootstrap.servers': KAFKA_SERVER}
 producer = Producer(producer_conf)
@@ -28,7 +28,7 @@ if not gsr_streams or not ppg_streams:
 inlet_gsr = StreamInlet(gsr_streams[0])
 inlet_ppg = StreamInlet(ppg_streams[0])
 
-print(f"--- Connected! Streaming to Kafka topic: {TOPIC_NAME} ---")
+print(f"Connected! Streaming to Kafka topic: {TOPIC_NAME}")
 
 count = 0
 try:
@@ -44,15 +44,15 @@ try:
 
         payload = {
             "participation_id": PARTICIPATION_ID,
-            # "ts_lsl": ts_gsr,          # Surowy czas z LSL
-            "ts": ts_ms,            # Twój czas w ms
-            # "human_ts": human_date,    # Czytelna data
-            "gsr": round(sample_gsr[0], 2),
-            "ppg": round(sample_ppg[0], 2),
-            "hr": 75.0          # HARDCODOWANE HR do czasu zastowosania przekształcenia z ppg
+            # "ts_lsl": ts_gsr,          # Raw time from LSL
+            "ts": ts_ms,            # Timestamp in ms
+            # "human_ts": human_date,    # Human readable date time
+            "gsr": round(sample_gsr[0], 2), # GSR values 
+            "ppg": round(sample_ppg[0], 2), # PPG values
+            "hr": 75.0          # Hardcoded HR value (TO BE CHANGED LATER)
         }
 
-        # WYSYŁKA DO KAFKI
+        # Sending to Kafka
         producer.produce(
             TOPIC_NAME, 
             json.dumps(payload).encode('utf-8'), 
@@ -61,7 +61,6 @@ try:
         
         producer.poll(0)
 
-        # Wyświetlamy co 50-tą próbkę, żeby nie zapchać terminala (bottleneck!)
         if count % 50 == 0:
             print(f"[{ts_ms}] Sent to Kafka | GSR: {payload['gsr']} | PPG: {payload['ppg']}")
 
