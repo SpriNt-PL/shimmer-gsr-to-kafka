@@ -1,41 +1,67 @@
-from pylsl import StreamInlet, resolve_byprop
+import time
+from pylsl import StreamInlet, resolve_streams
 
-print("Scanning for LSL streams...")
+TARGET_CHANNELS = {
+    "gsr": "GSR_Skin_Conductance",
+    "ppg": "PPG_A1"
+}
 
-# Find streams
+print("Scanning for Consensys/Shimmer LSL stream...")
+streams = resolve_streams(wait_time=5.0)
 
-gsr_streams = resolve_byprop('type', 'GSR', timeout=5.0)
-ppg_streams = resolve_byprop('type', 'PPG', timeout=5.0)
+if not streams:
+    print("Could not find any active LSL streams.")
+    exit()
 
-if not gsr_streams or not ppg_streams:
+shimmer_stream = streams[0]
+inlet = StreamInlet(shimmer_stream)
+info = inlet.info()
 
-    print("Could not find both GSR and PPG streams.")
+print(f"Connected to stream: '{info.name()}' ({info.channel_count()} channels)")
 
-else:
+ch_elem = info.desc().child("channels").child("channel")
+available_channels = {}
 
-    inlet_gsr = StreamInlet(gsr_streams[0])
-    inlet_ppg = StreamInlet(ppg_streams[0])
+for idx in range(info.channel_count()):
+    label = ch_elem.child_value("label") or ch_elem.child_value("name") or f"Ch_{idx}"
+    available_channels[label] = idx
+    ch_elem = ch_elem.next_sibling()
 
-    print("--- Connected to both streams! ---")
+channel_indices = {}
+missing_channels = []
 
-    count = 0
+for key, label in TARGET_CHANNELS.items():
+    if label in available_channels:
+        channel_indices[key] = (available_channels[label], label)
+    else:
+        missing_channels.append(label)
 
-    try:
+if missing_channels:
+    print(f"Error: The following required channels were not found: {missing_channels}")
+    print(f"Available channels: {list(available_channels.keys())}")
+    exit()
 
-        while True:
+print("Active channel mapping:")
+for key, (idx, label) in channel_indices.items():
+    print(f"  -> '{key}' <= '{label}' (index {idx})")
 
-            # sample + LSL timestamp
+print("--- Listening for samples (Ctrl+C to stop) ---")
 
-            sample_gsr, ts_gsr = inlet_gsr.pull_sample()
-            sample_ppg, ts_ppg = inlet_ppg.pull_sample()
+count = 0
+try:
+    while True:
+        sample, ts_lsl = inlet.pull_sample()
 
-            count += 1
+        if sample is None:
+            continue
 
-            # milliseconds timestamp
-            ts_ms = int(ts_gsr * 1000)
+        count += 1
+        ts_ms = int(ts_lsl * 1000)
 
-            print(f"Timestamp: {ts_ms} | "f"GSR: {sample_gsr[0]:.2f} kOhms | "f"PPG: {sample_ppg[0]:.2f} mV")
+        gsr_val = float(sample[channel_indices["gsr"][0]])
+        ppg_val = float(sample[channel_indices["ppg"][0]])
 
-    except KeyboardInterrupt:
+        print(f"Timestamp: {ts_ms} | GSR: {gsr_val:.2f} | PPG: {ppg_val:.2f}")
 
-        print("\nReceiver stopped.")
+except KeyboardInterrupt:
+    print("\nReceiver stopped.")
