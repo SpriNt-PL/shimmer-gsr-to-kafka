@@ -1,6 +1,5 @@
-# GSR_to_LSL.py
-
 #!/usr/bin/env python3
+# GSR_to_LSL.py
 
 import struct
 import argparse
@@ -36,39 +35,35 @@ class GSR_PPG_to_LSL:
         sample_rate = self.rate
         datatype = 'float32'
 
-        # GSR stream
-        gsr_name = f"Shimmer_GSR_{self.com_port}"
+        # --- JEDEN WIELOKANAŁOWY STRUMIEŃ (JAK W CONSENSYS PRO) ---
+        stream_name = f"Shimmer_{self.com_port}"
+        stream_type = "BioSignals"
+        channel_count = 2
 
-        info_gsr = StreamInfo(
-            gsr_name,
-            'GSR',
-            1,
+        info = StreamInfo(
+            stream_name,
+            stream_type,
+            channel_count,
             sample_rate,
             datatype,
-            gsr_name
+            f"shimmer_{self.com_port}"
         )
 
-        chns_gsr = info_gsr.desc().append_child("channels").append_child("channel")
-        chns_gsr.append_child_value("label", "GSR")
+        channels = info.desc().append_child("channels")
 
-        self.outlet_gsr = StreamOutlet(info_gsr)
+        # Kanał 0: GSR (taka sama etykieta jak w Consensys)
+        ch_gsr = channels.append_child("channel")
+        ch_gsr.append_child_value("label", "GSR_Skin_Conductance")
+        ch_gsr.append_child_value("unit", "kOhm")
+        ch_gsr.append_child_value("type", "GSR")
 
-        # PPG stream
-        ppg_name = f"Shimmer_PPG_{self.com_port}"
+        # Kanał 1: PPG (taka sama etykieta jak w Consensys)
+        ch_ppg = channels.append_child("channel")
+        ch_ppg.append_child_value("label", "PPG_A1")
+        ch_ppg.append_child_value("unit", "mV")
+        ch_ppg.append_child_value("type", "PPG")
 
-        info_ppg = StreamInfo(
-            ppg_name,
-            'PPG',
-            1,
-            sample_rate,
-            datatype,
-            ppg_name
-        )
-
-        chns_ppg = info_ppg.desc().append_child("channels").append_child("channel")
-        chns_ppg.append_child_value("label", "PPG")
-
-        self.outlet_ppg = StreamOutlet(info_ppg)
+        self.outlet = StreamOutlet(info)
 
         # Set sampling rate
         clock_wait = int((2 << 14) / sample_rate)
@@ -93,8 +88,7 @@ class GSR_PPG_to_LSL:
         framesize = 8
         buffer = b""
 
-        gsr_buffer = []
-        ppg_buffer = []
+        sample_buffer = []
 
         print("Reading data... (Press Ctrl-C to stop)")
 
@@ -120,7 +114,12 @@ class GSR_PPG_to_LSL:
 
                 volts = (gsr_raw & 0x3FFF) * (3.0 / 4095.0)
 
-                gsr_ohm = rf / ((volts / 0.5) - 1.0)
+                # Obliczenie oporu (zabezpieczenie dzielenia przez zero)
+                denom = (volts / 0.5) - 1.0
+                if abs(denom) > 1e-4:
+                    gsr_val = rf / denom
+                else:
+                    gsr_val = rf
 
                 # PPG conversion
                 ppg_mv = ppg_raw * (3000.0 / 4095.0)
@@ -128,25 +127,18 @@ class GSR_PPG_to_LSL:
                 # LSL timestamp
                 timestamp = time.time()
 
-                # Add to buffers
-                gsr_buffer.append([gsr_ohm])
-                ppg_buffer.append([ppg_mv])
+                # Dodajemy obie wartości jako jedną 2-elementową próbkę
+                sample_buffer.append([float(gsr_val), float(ppg_mv)])
 
                 # Push chunk when full
-                if len(gsr_buffer) >= self.chunk_size:
+                if len(sample_buffer) >= self.chunk_size:
 
-                    self.outlet_gsr.push_chunk(
-                        gsr_buffer,
+                    self.outlet.push_chunk(
+                        sample_buffer,
                         timestamp=timestamp
                     )
 
-                    self.outlet_ppg.push_chunk(
-                        ppg_buffer,
-                        timestamp=timestamp
-                    )
-
-                    gsr_buffer = []
-                    ppg_buffer = []
+                    sample_buffer = []
 
         except KeyboardInterrupt:
             print("\nUser interrupted—Stopping stream...")
