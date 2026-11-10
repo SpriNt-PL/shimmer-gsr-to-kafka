@@ -4,9 +4,11 @@ import argparse
 from confluent_kafka import Producer
 from pylsl import StreamInlet, local_clock, resolve_byprop, resolve_streams
 
-# Configuration
+# Experiment configuration
 PARTICIPATION_ID = "test_session_001"
 SENSOR_NAME = "Shimmer_C1D2"
+
+# Kafka Configuration
 KAFKA_SERVER = 'localhost:8081'
 TOPIC_NAME = 'biosignal-data'
 
@@ -16,8 +18,7 @@ TARGET_CHANNELS = {
     "ppg": "PPG_A1",
 }
 
-
-# Creating parser
+# Creating arguments parser
 parser = argparse.ArgumentParser(description="Sending data from LSL to Kafka")
 
 parser.add_argument("-test", "--test", action="store_true", help="Enable test mode")
@@ -53,7 +54,7 @@ shimmer_stream = streams[0]
 inlet = StreamInlet(shimmer_stream)
 info = inlet.info()
 
-# Wyznaczenie przesunięcia między zegarem LSL a czasem uniksowym tego laptopa (do synchronizacji z kamerą)
+# Deriving the time offset (do synchronizacji z kamerą)
 time_offset = time.time() - local_clock()
 
 print(f"Connected to stream: '{info.name()}' ({info.channel_count()} channels, {info.nominal_srate()} Hz)")
@@ -99,14 +100,14 @@ try:
             continue
 
         count += 1
-        # Przeliczenie precyzyjnego znacznika próbki LSL na Unix Epoch (w ms)
+
         ts_ms = int((ts_lsl + time_offset) * 1000)
 
         payload = {
             "participation_id": PARTICIPATION_ID,
             # "sensor_id": info.name(),
             "ts": ts_ms,
-            "hr": 75.0  # Hardcoded HR value (to be replaced later)
+            "hr": 75.0  # Hardcoded HR value (to be replaced later !!!)
         }
 
         for json_key, (idx, _) in channel_indices.items():
