@@ -2,10 +2,10 @@ import time
 import random
 from pylsl import StreamInfo, StreamOutlet, local_clock
 
-HZ = 128  # Taka sama częstotliwość jak w Twoim logu z prawdziwego Shimmera
+HZ = 128
 
 def create_shimmer_outlet(sensor_name: str, source_id: str) -> StreamOutlet:
-    # Tworzymy strumień z 2 kanałami o dokładnych nazwach oczekiwanych przez lsl_to_kafka.py
+    # Creating channel with two streams
     info = StreamInfo(
         name=sensor_name,
         type='Biosignals',
@@ -15,7 +15,6 @@ def create_shimmer_outlet(sensor_name: str, source_id: str) -> StreamOutlet:
         source_id=source_id
     )
     
-    # Dodajemy metadane XML kanałów (tak jak robi to ConsensysPRO)
     channels = info.desc().append_child("channels")
     
     ch_gsr = channels.append_child("channel")
@@ -37,7 +36,7 @@ def main():
     print("Broadcasting 2 simulated LSL streams: 'Shimmer_ABA6' and 'Shimmer_C1D2'...")
     print("Press Ctrl+C to stop.")
     
-    # Różne zakresy wartości, żebyś w logach Kafki od razu widział, z którego sensora pochodzą dane
+    # Different value ranges to easly identify from which sensor certain logs come from
     gsr_1, ppg_1 = 5.90, 1410.0   # Shimmer_ABA6 (~6 uS, ~1410 mV)
     gsr_2, ppg_2 = 15.20, 2200.0  # Shimmer_C1D2 (~15 uS, ~2200 mV)
     
