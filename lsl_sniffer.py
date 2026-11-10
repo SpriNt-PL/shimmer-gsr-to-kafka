@@ -49,32 +49,32 @@ def main():
         for c in channels:
             print(f"    [{c['index']}] Label: '{c['label']}' | Unit: '{c['unit']}' | Type: '{c['type']}'")
 
-        print("  --- Raw XML Header ---")
-        print(full_info.as_xml().strip())
-        print("=" * 75)
+        # print("  --- Raw XML Header ---")
+        # print(full_info.as_xml().strip())
+        # print("=" * 75)
 
-        inlets.append((full_info.name(), channels, inlet))
+        # inlets.append((full_info.name(), channels, inlet))
 
-    print("\nListening for live packets (Press Ctrl+C to stop)...\n")
+    # print("\nListening for live packets (Press Ctrl+C to stop)...\n")
 
-    try:
-        while True:
-            for stream_name, channels, inlet in inlets:
-                # Non-blocking pull so we can check all streams in one loop
-                sample, ts = inlet.pull_sample(timeout=0.0)
-                if sample is not None:
-                    # Pair each value in the packet list with its discovered channel label
-                    paired_data = ", ".join(
-                        f"{channels[i]['label']}: {val:.2f}"
-                        for i, val in enumerate(sample)
-                    )
-                    print(f"[{stream_name} | ts: {ts:.3f}] -> {paired_data}")
+    # try:
+    #     while True:
+    #         for stream_name, channels, inlet in inlets:
+    #             # Non-blocking pull so we can check all streams in one loop
+    #             sample, ts = inlet.pull_sample(timeout=0.0)
+    #             if sample is not None:
+    #                 # Pair each value in the packet list with its discovered channel label
+    #                 paired_data = ", ".join(
+    #                     f"{channels[i]['label']}: {val:.2f}"
+    #                     for i, val in enumerate(sample)
+    #                 )
+    #                 print(f"[{stream_name} | ts: {ts:.3f}] -> {paired_data}")
 
-            # Small sleep to prevent 100% CPU usage and terminal flooding
-            time.sleep(0.05)
+    #         # Small sleep to prevent 100% CPU usage and terminal flooding
+    #         time.sleep(0.05)
 
-    except KeyboardInterrupt:
-        print("\nSniffer stopped.")
+    # except KeyboardInterrupt:
+    #     print("\nSniffer stopped.")
 
 
 if __name__ == "__main__":

@@ -43,8 +43,8 @@ def main():
     # Bypass the auto-scanner and point directly to the virtual port
     port = 'COM10'
     print(f'Connecting directly to emulator on {port}...')
-
-    gsr = threading.Thread(target=GSR_PPG_to_LSL, args=(port,))
+    
+    gsr = threading.Thread(target=GSR_PPG_to_LSL, args=(port, 115200, 512, 1))
     gsr.start()
 
     # Keep the main thread alive
