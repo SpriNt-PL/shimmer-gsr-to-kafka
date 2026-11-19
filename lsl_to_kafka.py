@@ -6,7 +6,7 @@ from pylsl import StreamInlet, local_clock, resolve_byprop, resolve_streams
 
 # Experiment configuration
 PARTICIPATION_ID = "test_session_001"
-SENSOR_NAME = "Shimmer_C1D2"
+SENSOR_NAME = "Shimmer_ABA6"
 
 # Kafka Configuration
 KAFKA_SERVER = 'localhost:8081'
@@ -16,6 +16,7 @@ TOPIC_NAME = 'biosignal-data'
 TARGET_CHANNELS = {
     "gsr": "GSR_Skin_Conductance",
     "ppg": "PPG_A1",
+    "hr": "PPGtoHR"
 }
 
 # Creating arguments parser
@@ -54,7 +55,7 @@ shimmer_stream = streams[0]
 inlet = StreamInlet(shimmer_stream)
 info = inlet.info()
 
-# Deriving the time offset (do synchronizacji z kamerą)
+# Deriving the time offset
 time_offset = time.time() - local_clock()
 
 print(f"Connected to stream: '{info.name()}' ({info.channel_count()} channels, {info.nominal_srate()} Hz)")
@@ -107,7 +108,6 @@ try:
             "participation_id": PARTICIPATION_ID,
             # "sensor_id": info.name(),
             "ts": ts_ms,
-            "hr": 75.0  # Hardcoded HR value (to be replaced later !!!)
         }
 
         for json_key, (idx, _) in channel_indices.items():
