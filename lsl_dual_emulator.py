@@ -36,9 +36,9 @@ def create_shimmer_outlet(sensor_name: str, source_id: str) -> StreamOutlet:
 
 def main():
     outlet_1 = create_shimmer_outlet("Shimmer_ABA6", "shimmer_aba6_sim")
-    outlet_2 = create_shimmer_outlet("Shimmer_C1D2", "shimmer_c1d2_sim")
+    outlet_2 = create_shimmer_outlet("Shimmer_87F3", "shimmer_87f3_sim")
     
-    print("Broadcasting 2 simulated LSL streams with PPGtoHR: 'Shimmer_ABA6' and 'Shimmer_C1D2'...")
+    print("Broadcasting 3 simulated LSL streams: 'Shimmer_ABA6' and 'Shimmer_87F3'...")
     print("Press Ctrl+C to stop.")
     
     gsr_1, ppg_1, hr_1 = 5.90, 1410.0, 72.0
